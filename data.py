@@ -15,6 +15,10 @@ supabase_url = 'https://edggtblrgdscfjhkznkw.supabase.co'
 supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkZ2d0YmxyZ2RzY2ZqaGt6bmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMwMDUwNzIsImV4cCI6MjAzODU4MTA3Mn0.TtYY0AVPuVbQcJBBTXDvdPxEh6ffiUjL81XqIrHHqb4'
 supabase: Client = create_client(supabase_url,supabase_key)         
 
+@app.route('/')
+def index():
+    return jsonify(message="Hello World")
+
 @app.route('/data/node<int:id_gh>', methods=['GET'])
 def getDataNode(id_gh):
     data_sensor = supabase.table('dataNode').select("*").eq("id_gh",id_gh).order("time", desc=True).limit(30).execute()
