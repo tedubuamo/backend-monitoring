@@ -9,3 +9,4 @@ vercel/output/
 lib/  
 
 venv/
+.vercel

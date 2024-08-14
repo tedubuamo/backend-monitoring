@@ -1,15 +1,5 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "data.py",
-            "use": "@vercel/python"
-        }
-    ],
-    "routes":[
-        {
-            "src": "/(.*)",
-            "dest": "data.py"
-        }
+    "rewrites": [
+      { "source": "/(.*)", "destination": "/data" }
     ]
-}
+  }
