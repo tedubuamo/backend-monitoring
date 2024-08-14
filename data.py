@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0,'lib')
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS # type: ignore
 from supabase import create_client, Client
