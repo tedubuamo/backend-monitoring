@@ -17,7 +17,7 @@ supabase: Client = create_client(supabase_url,supabase_key)
 
 @app.route('/')
 def index():
-    return jsonify(message="Hello World")
+    return 'Hello World'
 
 @app.route('/data/node<int:id_gh>', methods=['GET'])
 def getDataNode(id_gh):
