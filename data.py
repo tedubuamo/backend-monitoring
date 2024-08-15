@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0,'lib')
+from config import Config
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS # type: ignore
 from supabase import create_client, Client
@@ -10,10 +11,13 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 CORS(app)
+app.config.from_object(Config)
+apiUrl = app.config['API_URL']
 
 supabase_url = 'https://edggtblrgdscfjhkznkw.supabase.co'
 supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkZ2d0YmxyZ2RzY2ZqaGt6bmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMwMDUwNzIsImV4cCI6MjAzODU4MTA3Mn0.TtYY0AVPuVbQcJBBTXDvdPxEh6ffiUjL81XqIrHHqb4'
 supabase: Client = create_client(supabase_url,supabase_key)         
+
 
 @app.route('/')
 def index():
@@ -27,7 +31,8 @@ def getDataNode(id_gh):
 
 @app.route('/monitoring/node<int:id_gh>',methods =['GET'])
 def data_monitoring(id_gh):
-    url = f'http://127.0.0.1:5000/data/node{id_gh}'
+    global apiUrl
+    url = f'{apiUrl}/data/node{id_gh}'
     response = requests.get(url)
 
     if response.status_code == 200:
