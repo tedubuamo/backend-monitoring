@@ -46,7 +46,7 @@ def data_monitoring(id_gh):
 
 @app.route('/line/node<int:id_gh>', methods = ['GET'])
 def getdata(id_gh):
-    url = f'http://127.0.0.1:5000/data/node{id_gh}'
+    url = f'{app.config['API_URL']}/data/node{id_gh}'
         # Melakukan GET request ke server
     response = requests.get(url)
     
