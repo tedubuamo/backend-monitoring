@@ -30,23 +30,23 @@ def getDataNode(id_gh):
 
 @app.route('/monitoring/node<int:id_gh>',methods =['GET'])
 def data_monitoring(id_gh):
-    url = f'{app.config['API_URL']}/data/node{id_gh}'
+    url = f"{app.config['API_URL']}/data/node{id_gh}"
     response = requests.get(url)
 
     if response.status_code == 200:
         data = response.json()
-        tempData = float(round(data[-1]['temp'],2))
-        moistData = float(round(data[-1]['moist'],2))
-        soilData = float(round(data[-1]['soil'],2))
-        lumenData = float(round(data[-1]['lumen'],2))
+        tempData = float(round(data[-1]['temp'],1))
+        humidData = float(round(data[-1]['moist'],1))
+        soilData = float(round(data[-1]['soil'],1))
+        lumenData = float(round(data[-1]['lumen'],1))
         return jsonify({"temp":tempData,
-                        "moist":moistData,
+                        "humid":humidData,
                         "soil":soilData,
                         "lumen":lumenData})
 
 @app.route('/line/node<int:id_gh>', methods = ['GET'])
 def getdata(id_gh):
-    url = f'{app.config['API_URL']}/data/node{id_gh}'
+    url = f"{app.config['API_URL']}/data/node{id_gh}"
         # Melakukan GET request ke server
     response = requests.get(url)
     
@@ -64,7 +64,7 @@ def getdata(id_gh):
             data_sensor.append({
                 'temp': data[i]['temp'],
                 'moist':data[i]['moist'],
-                'soil': data[i]['soil'],
+                'humid': data[i]['soil'],
                 'lumen':data[i]['lumen'],
                 'time': formatted_time
             })
@@ -76,5 +76,37 @@ def getdata(id_gh):
     else:
         return jsonify({"error": "Failed to retrieve data"}), response.status_code
     
+@app.route("/overview/gh_home", methods=["GET"])
+def get_overview_gh_home():
+    base_url = f"{app.config['API_URL']}/data/node"
+    total_nodes = 12
+
+    lumen_series = []
+    humid_series = []
+    soil_series = []
+    temp_series = []
+
+    for i in range(1, total_nodes+1):
+        response = requests.get(f"{base_url}{i}")
+        if response.status_code == 200:
+            data = response.json()
+            lumen_series.append(data[-1]['lumen'])
+            humid_series.append(data[-1]['moist'])
+            soil_series.append(data[-1]['soil'])
+            temp_series.append(data[-1]['temp'])
+        else:
+            lumen_series.append(None)
+            humid_series.append(None)
+            soil_series.append(None)
+            temp_series.append(None)
+    
+    result = [
+        { "type": "lumen", "series": lumen_series },
+        { "type": "humid", "series": humid_series },
+        { "type": "soil", "series": soil_series },
+        { "type": "temp", "series": temp_series }]
+    
+    return jsonify(result), 200
+
 if __name__ == "__main__":
     app.run(debug=True)
