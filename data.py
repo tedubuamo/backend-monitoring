@@ -63,8 +63,8 @@ def getdata(id_gh):
             formatted_time = adjusted_time.strftime("%H:%M")
             data_sensor.append({
                 'temp': data[i]['temp'],
-                'moist':data[i]['moist'],
-                'humid': data[i]['soil'],
+                'humid':data[i]['moist'],
+                'soil': data[i]['soil'],
                 'lumen':data[i]['lumen'],
                 'time': formatted_time
             })
@@ -107,6 +107,73 @@ def get_overview_gh_home():
         { "type": "temp", "series": temp_series }]
     
     return jsonify(result), 200
+
+def calculate_all(data):
+    # Data historis harus dalam urutan terbaru ke terlama
+    Huma_t1 = data['Huma_1']
+    Inte_t1 = data['Inte_1']
+    Temp_t1 = data['Temp_1']
+    Huma_t2 = data['Huma_2']
+    Inte_t2 = data['Inte_2']
+    Temp_t2 = data['Temp_2']
+    Huma_t3 = data['Huma_3']
+    Inte_t3 = data['Inte_3']
+    Temp_t3 = data['Temp_3']
+    Huma_t4 = data['Huma_4']
+    Inte_t4 = data['Inte_4']
+    Temp_t4 = data['Temp_4']
+    Huma_t5 = data['Huma_5']
+    Inte_t5 = data['Inte_5']
+    Temp_t5 = data['Temp_5']
+    
+    # Menghitung prediksi
+    Huma_t = (0.671 * Huma_t1 - 4.077e-05 * Inte_t1 - 0.534 * Temp_t1 +
+              0.144 * Huma_t2 - 1.296e-05 * Inte_t2 + 0.069 * Temp_t2 +
+              0.126 * Huma_t3 - 3.940e-06 * Inte_t3 + 0.102 * Temp_t3 +
+              0.0027 * Huma_t4 + 6.476e-06 * Inte_t4 + 0.0708 * Temp_t4 +
+              0.051 * Huma_t5 + 1.122e-05 * Inte_t5 + 0.2996 * Temp_t5 +
+              0.2837)
+    
+    Inte_t = (-6.404 * Huma_t1 + 0.446 * Inte_t1 + 68.8115 * Temp_t1 -
+              9.968 * Huma_t2 + 0.128 * Inte_t2 + 43.4208 * Temp_t2 +
+              13.198 * Huma_t3 + 0.063 * Inte_t3 - 103.112 * Temp_t3 +
+              45.8223 * Huma_t4 + 0.124 * Inte_t4 + 1.855 * Temp_t4 -
+              45.799 * Huma_t5 + 0.197 * Inte_t5 + 6.622 * Temp_t5 -
+              114.5463)
+    
+    Temp_t = (0.004437 * Huma_t1 + 4.198e-05 * Inte_t1 + 0.922 * Temp_t1 -
+              0.01048 * Huma_t2 + 3.844e-06 * Inte_t2 + 0.0034 * Temp_t2 -
+              0.0027 * Huma_t3 - 1.118e-05 * Inte_t3 + 0.0568 * Temp_t3 +
+              0.00788 * Huma_t4 - 4.808e-06 * Inte_t4 + 0.00651 * Temp_t4 +
+              0.001539 * Huma_t5 - 1.604e-05 * Inte_t5 + 0.00365 * Temp_t5 +
+              0.1101)
+    
+    return {"Huma_t": round(Huma_t,2), "Inte_t": round(Inte_t,2), "Temp_t": round(Temp_t,2)}
+    
+@app.route('/predict/node<int:id_gh>', methods=['GET'])
+def predict_node(id_gh):
+    # Ambil data historis dari Supabase
+    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(5).execute()
+    data = data_sensor.data
+
+    if len(data) < 5:
+        return jsonify({"error": "Not enough data for prediction"}), 400
+    
+    # Siapkan data untuk prediksi
+    prev_data = {
+        'Huma_1': data[0]['moist'], 'Inte_1': data[0]['lumen'], 'Temp_1': data[0]['temp'],
+        'Huma_2': data[1]['moist'], 'Inte_2': data[1]['lumen'], 'Temp_2': data[1]['temp'],
+        'Huma_3': data[2]['moist'], 'Inte_3': data[2]['lumen'], 'Temp_3': data[2]['temp'],
+        'Huma_4': data[3]['moist'], 'Inte_4': data[3]['lumen'], 'Temp_4': data[3]['temp'],
+        'Huma_5': data[4]['moist'], 'Inte_5': data[4]['lumen'], 'Temp_5': data[4]['temp'],
+    }
+
+    print(prev_data)
+    # Lakukan prediksi
+    prediction = calculate_all(prev_data)
+
+    # Kembalikan hasil prediksi sebagai JSON
+    return jsonify(prediction)
 
 if __name__ == "__main__":
     app.run(debug=True)
