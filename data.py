@@ -7,6 +7,8 @@ from supabase import create_client, Client
 import secrets
 import requests
 from datetime import datetime, timedelta
+import pandas as pd
+import regex as re
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -185,6 +187,63 @@ def predict_node(id_gh):
 
     # Kembalikan hasil prediksi sebagai JSON
     return jsonify(prediction)
+
+# ----------------------------- LOGIN USER -----------------------------
+
+patternEmailUser = r'^[a-zA-Z0-9]+@petani\.com$'
+tabel_user = supabase.table("user").select('*').execute()
+data_user = pd.DataFrame(tabel_user.data)
+userEmailList = data_user['email'].tolist()
+
+@app.route('/user', methods=['GET'])
+def user_petani():
+    response = supabase.table("user").select('*').execute()
+    data = response.data
+    return jsonify(data)
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    global patternEmailUser, tabel_user, data_user, userEmailList
+    if request.method == 'POST':
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        id_gh = data.get('id_gh')
+        username = data.get("username")
+
+        # Autentikasi Login Page
+        if re.match(patternEmailUser,email):
+            if email in userEmailList:
+                user_index = data_user.loc[data_user['email'] == email].index[0]
+                if data_user.at[user_index,'password'] == password:
+                    session['email'] = email
+                return jsonify({'message': 'Login successful!','username': username,'id_gh': id_gh}), 200
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+# @app.route('/api/register', methods=['POST'])
+# def register():
+#     global patternEmailUser, tabel_petani, data_petani, userEmailList
+#     if request.method == 'POST':
+#         data = request.get_json()
+#         username = data.get('username')
+#         email = data.get('email')
+#         password = data.get('password')
+#         confirmPassword = data.get('confirmPassword')
+#         print()
+#         print(data)
+#         print()
+#         # Autentikasi Register Page
+#         if re.match(patternEmailUser,email):
+#             if email in userEmailList:
+#                 return jsonify({'message': 'Username already exists'}), 400
+#             elif email not in userEmailList:
+#                 if password == confirmPassword:
+#                     supabase.table("petani").insert({ "nama_petani" : username, "email_petani" : email, "password" : password }).execute()
+#                     return jsonify({'message': 'Petani added sucessfully'}), 201
+#             else:
+#                 print("GOBLok")
+#                 return jsonify({'message': 'Invalid credentials'}), 400
+#     return jsonify({'message': 'Apalah'}), 201
 
 if __name__ == "__main__":
     app.run(debug=True)
