@@ -7,6 +7,8 @@ from supabase import create_client, Client
 import secrets
 import requests
 from datetime import datetime, timedelta
+import pandas as pd
+import regex as re
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -17,6 +19,47 @@ supabase_url = 'https://edggtblrgdscfjhkznkw.supabase.co'
 supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkZ2d0YmxyZ2RzY2ZqaGt6bmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMwMDUwNzIsImV4cCI6MjAzODU4MTA3Mn0.TtYY0AVPuVbQcJBBTXDvdPxEh6ffiUjL81XqIrHHqb4'
 supabase: Client = create_client(supabase_url,supabase_key)         
 
+def calculate_all(data):
+    # Data historis harus dalam urutan terbaru ke terlama
+    Huma_t1 = data['Huma_1']
+    Inte_t1 = data['Inte_1']
+    Temp_t1 = data['Temp_1']
+    Huma_t2 = data['Huma_2']
+    Inte_t2 = data['Inte_2']
+    Temp_t2 = data['Temp_2']
+    Huma_t3 = data['Huma_3']
+    Inte_t3 = data['Inte_3']
+    Temp_t3 = data['Temp_3']
+    Huma_t4 = data['Huma_4']
+    Inte_t4 = data['Inte_4']
+    Temp_t4 = data['Temp_4']
+    Huma_t5 = data['Huma_5']
+    Inte_t5 = data['Inte_5']
+    Temp_t5 = data['Temp_5']
+    
+    # Menghitung prediksi
+    Huma_t = (0.671 * Huma_t1 - 4.077e-05 * Inte_t1 - 0.534 * Temp_t1 +
+              0.144 * Huma_t2 - 1.296e-05 * Inte_t2 + 0.069 * Temp_t2 +
+              0.126 * Huma_t3 - 3.940e-06 * Inte_t3 + 0.102 * Temp_t3 +
+              0.0027 * Huma_t4 + 6.476e-06 * Inte_t4 + 0.0708 * Temp_t4 +
+              0.051 * Huma_t5 + 1.122e-05 * Inte_t5 + 0.2996 * Temp_t5 +
+              0.2837)
+    
+    Inte_t = (-6.404 * Huma_t1 + 0.446 * Inte_t1 + 68.8115 * Temp_t1 -
+              9.968 * Huma_t2 + 0.128 * Inte_t2 + 43.4208 * Temp_t2 +
+              13.198 * Huma_t3 + 0.063 * Inte_t3 - 103.112 * Temp_t3 +
+              45.8223 * Huma_t4 + 0.124 * Inte_t4 + 1.855 * Temp_t4 -
+              45.799 * Huma_t5 + 0.197 * Inte_t5 + 6.622 * Temp_t5 -
+              114.5463)
+    
+    Temp_t = (0.004437 * Huma_t1 + 4.198e-05 * Inte_t1 + 0.922 * Temp_t1 -
+              0.01048 * Huma_t2 + 3.844e-06 * Inte_t2 + 0.0034 * Temp_t2 -
+              0.0027 * Huma_t3 - 1.118e-05 * Inte_t3 + 0.0568 * Temp_t3 +
+              0.00788 * Huma_t4 - 4.808e-06 * Inte_t4 + 0.00651 * Temp_t4 +
+              0.001539 * Huma_t5 - 1.604e-05 * Inte_t5 + 0.00365 * Temp_t5 +
+              0.1101)
+    
+    return {"Huma_t": round(Huma_t,2), "Inte_t": round(Inte_t,2), "Temp_t": round(Temp_t,2)}
 
 @app.route('/')
 def index():
@@ -63,8 +106,8 @@ def getdata(id_gh):
             formatted_time = adjusted_time.strftime("%H:%M")
             data_sensor.append({
                 'temp': data[i]['temp'],
-                'moist':data[i]['moist'],
-                'humid': data[i]['soil'],
+                'humid':data[i]['moist'],
+                'soil': data[i]['soil'],
                 'lumen':data[i]['lumen'],
                 'time': formatted_time
             })
@@ -107,6 +150,150 @@ def get_overview_gh_home():
         { "type": "temp", "series": temp_series }]
     
     return jsonify(result), 200
+
+@app.route("/production/average/node<int:id_gh>", methods=['GET'])
+def average_production(id_gh):
+    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(5).execute()
+    data = data_sensor.data
+    formatted_data = {
+        "type":"celcius",
+        "data":[{"x":item['temp'], 
+                 "y":item['lumen']} for item in data]
+    }
+    return jsonify(formatted_data)
+
+
+@app.route('/predict/node<int:id_gh>', methods=['GET'])
+def predict_node(id_gh):
+    # Ambil data historis dari Supabase
+    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(5).execute()
+    data = data_sensor.data
+
+    if len(data) < 5:
+        return jsonify({"error": "Not enough data for prediction"}), 400
+    
+    # Siapkan data untuk prediksi
+    prev_data = {
+        'Huma_1': data[0]['moist'], 'Inte_1': data[0]['lumen'], 'Temp_1': data[0]['temp'],
+        'Huma_2': data[1]['moist'], 'Inte_2': data[1]['lumen'], 'Temp_2': data[1]['temp'],
+        'Huma_3': data[2]['moist'], 'Inte_3': data[2]['lumen'], 'Temp_3': data[2]['temp'],
+        'Huma_4': data[3]['moist'], 'Inte_4': data[3]['lumen'], 'Temp_4': data[3]['temp'],
+        'Huma_5': data[4]['moist'], 'Inte_5': data[4]['lumen'], 'Temp_5': data[4]['temp'],
+    }
+
+    print(prev_data)
+    # Lakukan prediksi
+    prediction = calculate_all(prev_data)
+
+    # Kembalikan hasil prediksi sebagai JSON
+    return jsonify(prediction)
+
+# ----------------------------- LOGIN USER -----------------------------
+
+patternEmailUser = r'^[a-zA-Z0-9]+@petani\.com$'
+tabel_user = supabase.table("user").select('*').execute()
+data_user = pd.DataFrame(tabel_user.data)
+userEmailList = data_user['email'].tolist()
+
+@app.route('/user', methods=['GET'])
+def user_petani():
+    response = supabase.table("user").select('*').execute()
+    data = response.data
+    return jsonify(data)
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    global patternEmailUser, tabel_user, data_user, userEmailList
+    if request.method == 'POST':
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        id_gh = data.get('id_gh')
+        username = data.get("username")
+
+        # Autentikasi Login Page
+        if re.match(patternEmailUser,email):
+            if email in userEmailList:
+                user_index = data_user.loc[data_user['email'] == email].index[0]
+                if data_user.at[user_index,'password'] == password:
+                    session['email'] = email
+                return jsonify({'message': 'Login successful!','username': username,'id_gh': id_gh}), 200
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+# @app.route('/api/register', methods=['POST'])
+# def register():
+#     global patternEmailUser, tabel_petani, data_petani, userEmailList
+#     if request.method == 'POST':
+#         data = request.get_json()
+#         username = data.get('username')
+#         email = data.get('email')
+#         password = data.get('password')
+#         confirmPassword = data.get('confirmPassword')
+#         print()
+#         print(data)
+#         print()
+#         # Autentikasi Register Page
+#         if re.match(patternEmailUser,email):
+#             if email in userEmailList:
+#                 return jsonify({'message': 'Username already exists'}), 400
+#             elif email not in userEmailList:
+#                 if password == confirmPassword:
+#                     supabase.table("petani").insert({ "nama_petani" : username, "email_petani" : email, "password" : password }).execute()
+#                     return jsonify({'message': 'Petani added sucessfully'}), 201
+#             else:
+#                 print("GOBLok")
+#                 return jsonify({'message': 'Invalid credentials'}), 400
+#     return jsonify({'message': 'Apalah'}), 201
+
+
+# ----------------------------- LOGIN ADMIN -----------------------------
+
+patternEmailAdmin = r'^[a-zA-Z0-9]+@admin\.com$'
+
+@app.route('/admin', methods=['GET'])
+def admin_petani():
+    response = supabase.table("admin").select('*').execute()
+    data = response.data
+    return jsonify(data)
+
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    data = request.get_json()
+    identifier = data.get('identifier')  # Ini bisa berupa email atau username
+    password = data.get('password')
+
+    # Cek apakah identifier adalah email
+    if re.match(patternEmailAdmin, identifier):
+        # Ambil data admin berdasarkan email
+        response = supabase.table("admin").select('*').eq('email', identifier).execute()
+    else:
+        # Ambil data admin berdasarkan username
+        response = supabase.table("admin").select('*').eq('username', identifier).execute()
+
+    admin_data = response.data
+
+    if not admin_data:
+        return jsonify({'message': 'User not found'}), 404
+
+    admin_data = admin_data[0]  # Mengambil admin data dari list hasil query
+
+    # Verifikasi password
+    if admin_data['password'] != password:
+        return jsonify({'message': 'Incorrect password'}), 401
+
+    # Jika login berhasil
+    session['admin_id'] = admin_data['id_admin']
+    session['email'] = admin_data['email']
+    session['username'] = admin_data['username']
+    
+    return jsonify({
+        'message': 'Login successful!',
+        'admin': {
+            'id_admin': admin_data['id_admin'],
+            'email': admin_data['email'],
+            'username': admin_data['username']
+        }
+    }), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
