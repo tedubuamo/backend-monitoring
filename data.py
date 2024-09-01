@@ -217,7 +217,7 @@ def login():
                 user_index = data_user.loc[data_user['email'] == email].index[0]
                 if data_user.at[user_index,'password'] == password:
                     session['email'] = email
-                return jsonify({'message': 'Login successful!','username': username,'id_gh': id_gh}), 200
+                return jsonify({'message': 'Login successful!','username': username[user_index],'id_gh': id_gh[user_index]}), 200
         return jsonify({'message': 'Invalid credentials'}), 401
 
 # @app.route('/api/register', methods=['POST'])
