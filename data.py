@@ -208,17 +208,14 @@ def login():
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
-        id_gh = data.get('id_gh')
-        username = data.get("username")
 
-        # Autentikasi Login Page
-        if re.match(patternEmailUser,email):
-            if email in userEmailList:
-                user_index = data_user.loc[data_user['email'] == email].index[0]
-                if data_user.at[user_index,'password'] == password:
-                    session['email'] = email
-                return jsonify({'message': 'Login successful!','username': username[user_index],'id_gh': id_gh[user_index]}), 200
-        return jsonify({'message': 'Invalid credentials'}), 401
+        user = supabase.table("user").select("*").eq("email", email).eq("password", password).execute()
+
+        if user.data:
+            return jsonify({"user": user.data})
+        else:
+            return jsonify({"error": "Invalid email or password"}), 401
+
 
 # @app.route('/api/register', methods=['POST'])
 # def register():
