@@ -78,10 +78,10 @@ def data_monitoring(id_gh):
 
     if response.status_code == 200:
         data = response.json()
-        tempData = float(round(data[-1]['temp'],1))
-        humidData = float(round(data[-1]['moist'],1))
-        soilData = float(round(data[-1]['soil'],1))
-        lumenData = float(round(data[-1]['lumen'],1))
+        tempData = float(round(data[1]['temp'],1))
+        humidData = float(round(data[1]['moist'],1))
+        soilData = float(round(data[1]['soil'],1))
+        lumenData = float(round(data[1]['lumen'],1))
         return jsonify({"temp":tempData,
                         "humid":humidData,
                         "soil":soilData,
