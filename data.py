@@ -294,6 +294,31 @@ def admin_login():
             'username': admin_data['username']
         }
     }), 200
+    
+@app.route('/production/node<int:id_gh>', methods=['GET'])
+def get_production_data(id_gh):
+    # Ambil data produksi berdasarkan id_gh
+    data_produksi = supabase.table('panen').select("*").eq("id_gh", id_gh).order("waktu_panen", desc=True).execute()
+    data = data_produksi.data
+
+    # Cek apakah data ada
+    if not data:
+        return jsonify({"message": "No production data found for this greenhouse"}), 404
+
+    # Mengembalikan data dalam format JSON
+    formatted_data = [
+        {
+            "id": item['id'],
+            "id_gh": item['id_gh'],
+            "id_varietas": item['id_varietas'],
+            "jumlah_produksi": item['jumlah_produksi'],
+            "waktu_panen": item['waktu_panen'],
+            "created_at": item['created_at']
+        }
+        for item in data
+    ]
+
+    return jsonify(formatted_data), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
