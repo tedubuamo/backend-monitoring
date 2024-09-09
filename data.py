@@ -343,6 +343,5 @@ def get_pump_data(id_gh):
 
     return jsonify(formatted_data), 200
 
-
 if __name__ == "__main__":
     app.run(debug=True)
