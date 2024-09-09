@@ -320,5 +320,29 @@ def get_production_data(id_gh):
 
     return jsonify(formatted_data), 200
 
+@app.route('/pump/node<int:id_gh>', methods=['GET'])
+def get_pump_data(id_gh):
+    # Ambil data pompa berdasarkan id_gh
+    data_pompa = supabase.table('pompa').select("id, time, status_pompa, id_gh").eq("id_gh", id_gh).order("time", desc=True).execute()
+    data = data_pompa.data
+
+    # Cek apakah data ada
+    if not data:
+        return jsonify({"message": "No pump data found for this greenhouse"}), 404
+
+    # Mengembalikan data dalam format JSON
+    formatted_data = [
+        {
+            "id": item['id'],
+            "time": item['time'],
+            "status_pompa": item['status_pompa'],
+            "id_gh": item['id_gh']
+        }
+        for item in data
+    ]
+
+    return jsonify(formatted_data), 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)
