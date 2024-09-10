@@ -9,6 +9,7 @@ import requests
 from datetime import datetime, timedelta
 import pandas as pd
 import regex as re
+import pytz
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -244,7 +245,6 @@ def login():
 
 
 # ----------------------------- LOGIN ADMIN -----------------------------
-
 patternEmailAdmin = r'^[a-zA-Z0-9]+@admin\.com$'
 
 @app.route('/admin', methods=['GET'])
@@ -340,5 +340,130 @@ def get_pump_data(id_gh):
 
     return jsonify(formatted_data), 200
 
+
+#-------Notifikasi--------
+# Tentukan rentang ideal untuk masing-masing parameter
+IDEAL_TEMP_RANGE = (20, 38)   # Suhu ideal antara 20°C - 30°C
+IDEAL_HUMID_RANGE = (20, 85)  # Kelembapan ideal antara 50% - 70%
+IDEAL_SOIL_RANGE = (1, 85)   # Kelembapan tanah ideal antara 30% - 60%
+IDEAL_LUMEN_RANGE = (1, 40000)  # Intensitas cahaya ideal antara 300 - 700 lumen
+
+# Variabel untuk menyimpan data outlier secara global
+outlier_data = {}
+
+# Fungsi untuk mendeteksi apakah data keluar dari batas ideal
+def is_outlier(value, ideal_range):
+    return value < ideal_range[0] or value > ideal_range[1]
+
+@app.route('/detect_outliers/node<int:id_gh>', methods=['GET'])
+def detect_outliers_node(id_gh):
+    global outlier_data
+
+    # Ambil data historis dari Supabase
+    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(10).execute()
+    data = data_sensor.data
+
+    # Variabel sementara untuk menyimpan data outlier per request
+    temp_outliers = []
+    humid_outliers = []
+    soil_outliers = []
+    lumen_outliers = []
+
+    # Periksa setiap data sensor dan bandingkan dengan nilai ideal
+    for record in data:
+        temp = record['temp']
+        humid = record['moist']
+        soil = record['soil']
+        lumen = record['lumen']
+
+        # Jika nilai keluar dari rentang ideal, simpan sebagai outlier
+        if is_outlier(temp, IDEAL_TEMP_RANGE):
+            temp_outliers.append({
+                "id_gh": id_gh,
+                "time": record['time'],
+                "value": temp
+            })
+
+        if is_outlier(humid, IDEAL_HUMID_RANGE):
+            humid_outliers.append({
+                "id_gh": id_gh,
+                "time": record['time'],
+                "value": humid
+            })
+
+        if is_outlier(soil, IDEAL_SOIL_RANGE):
+            soil_outliers.append({
+                "id_gh": id_gh,
+                "time": record['time'],
+                "value": soil
+            })
+
+        if is_outlier(lumen, IDEAL_LUMEN_RANGE):
+            lumen_outliers.append({
+                "id_gh": id_gh,
+                "time": record['time'],
+                "value": lumen
+            })
+
+    # Simpan atau update data outlier di variabel global hanya untuk id_gh yang terdeteksi
+    outlier_data[id_gh] = {
+        "temp_outliers": temp_outliers,
+        "humid_outliers": humid_outliers,
+        "soil_outliers": soil_outliers,
+        "lumen_outliers": lumen_outliers,
+    }
+
+    # Mengembalikan hasil deteksi outlier
+    return jsonify({
+        "temp_outliers": temp_outliers,
+        "humid_outliers": humid_outliers,
+        "soil_outliers": soil_outliers,
+        "lumen_outliers": lumen_outliers
+    }), 200
+
+@app.route('/outliers/notifications', methods=['GET'])
+def get_outlier_notifications():
+    # Mengembalikan data outlier yang sudah disimpan
+    # Hanya data terbaru dari setiap id_gh yang ditampilkan
+    return jsonify(list(outlier_data.values())), 200
+
+
+#-------cek kondisi GH 1 jam terakhir------
+# Mengatur zona waktu Jakarta
+jakarta_tz = pytz.timezone('Asia/Jakarta')
+
+@app.route('/check_all_gh', methods=['GET'])
+def check_all_greenhouses():
+    # Daftar ID greenhouse yang ingin dicek
+    gh_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Contoh ID greenhouse
+
+    notifikasi = []
+
+    for id_gh in gh_ids:
+        # Waktu sekarang dan waktu 1 jam yang lalu di zona waktu Jakarta
+        current_time = datetime.now(jakarta_tz)
+        one_hour_ago = current_time - timedelta(hours=1)
+
+        # Konversi waktu ke format string yang sesuai dengan database (misalnya ISO 8601)
+        one_hour_ago_str = one_hour_ago.isoformat()
+
+        # Ambil data dari Supabase untuk setiap gh berdasarkan id_gh dalam waktu 1 jam terakhir
+        data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).gt("time", one_hour_ago_str).execute()
+        data = data_sensor.data
+
+        if len(data) == 0:
+            # Jika tidak ada data, tambahkan notifikasi
+            notifikasi.append(f"Tidak ada data dari greenhouse {id_gh} dalam 1 jam terakhir.")
+    
+    if len(notifikasi) > 0:
+        # Jika ada notifikasi error, return notifikasi tersebut
+        return jsonify({
+            "status": "error",
+            "notifikasi": notifikasi
+        }), 404
+    else:
+        # Tidak memberikan respon apapun jika semua data berhasil diambil
+        return '', 204  # No Content
+    
 if __name__ == "__main__":
     app.run(debug=True)
