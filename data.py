@@ -242,6 +242,5 @@ def login():
 #                 return jsonify({'message': 'Invalid credentials'}), 400
 #     return jsonify({'message': 'Apalah'}), 201
 
-    
 if __name__ == "__main__":
     app.run(debug=True)
