@@ -60,13 +60,20 @@ def fetch_hourly_data(id_gh, hours=24):
     data_filtered = df_filtered.to_dict(orient='records')
     
     return data_filtered
+
 def make_predictions(models, data):
     """
     Generate predictions for the next 24 hours based on the given data and models.
     """
     # Forecast the values for the next 24 hours using the models
     predictions = {'lumen': [], 'humid': [], 'temp': []}
-    future_times = [datetime.now() + timedelta(hours=i) for i in range(1, 25)]
+    
+    # Set future times to the next full hour from now
+    current_time = datetime.now()
+    next_full_hour = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    
+    # Generate future times for the next 24 hours starting from the next full hour
+    future_times = [next_full_hour + timedelta(hours=i) for i in range(24)]
 
     for column, model in models.items():
         if model:
@@ -95,7 +102,6 @@ def make_predictions(models, data):
                 results[column].append({f'time': time, f'pred_{column}': None})
 
     return results
-
 
 @app.route('/predict/node<int:id_gh>', methods=['GET'])
 def predict_next_24_hours(id_gh):
