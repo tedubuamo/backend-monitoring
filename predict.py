@@ -1,6 +1,8 @@
-import pickle
-from datetime import datetime, timedelta
+import pandas as pd
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import numpy as np
+import joblib
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from supabase import create_client, Client
@@ -14,62 +16,86 @@ CORS(app)
 # Supabase setup
 supabase_url = 'https://edggtblrgdscfjhkznkw.supabase.co'
 supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkZ2d0YmxyZ2RzY2ZqaGt6bmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMwMDUwNzIsImV4cCI6MjAzODU4MTA3Mn0.TtYY0AVPuVbQcJBBTXDvdPxEh6ffiUjL81XqIrHHqb4'
-supabase: Client = create_client(supabase_url,supabase_key)  
+supabase: Client = create_client(supabase_url, supabase_key)
 
-# Load your machine learning model (assuming it's serialized with pickle)
-with open('model_replon.pkl', 'rb') as f:
-    model = pickle.load(f)
+# Load the models (assuming models are saved as separate files for each variable)
+lumen_model = joblib.load('lumen_model.pkl')
+humid_model = joblib.load('humid_model.pkl')
+temp_model = joblib.load('temp_model.pkl')
 
 def fetch_hourly_data(id_gh, hours=24):
     """
-    Fetch hourly data for the past `hours` hours.
+    Fetch hourly data for the past hours hours at specific hours (e.g., 01:00, 02:00, etc.).
     """
     end_time = datetime.now()
     start_time = end_time - timedelta(hours=hours)
     
-    # Query Supabase to get data from `start_time` to `end_time`
+    # Query Supabase to get data from start_time to end_time
     response = supabase.table('dataNode') \
         .select("*") \
         .eq("id_gh", id_gh) \
         .gte("time", start_time.isoformat()) \
         .lte("time", end_time.isoformat()) \
-        .order("time", desc=False) \
         .execute()
     
-    return response.data
+    if not response.data:
+        return []
 
-def make_predictions(data):
+    # Convert the data to a DataFrame
+    df = pd.DataFrame(response.data)
+    
+    # Convert the time column to datetime
+    df['time'] = pd.to_datetime(df['time'])
+    
+    # Filter to get data only at specific hours
+    df_filtered = df[df['time'].dt.hour.isin(range(1, 25))]
+    
+    # Sort by time
+    df_filtered.sort_values(by='time', inplace=True)
+    
+    # Reset index to convert back to a list of dictionaries
+    df_filtered.reset_index(drop=True, inplace=True)
+    
+    # Convert DataFrame back to list of dictionaries
+    data_filtered = df_filtered.to_dict(orient='records')
+    
+    return data_filtered
+def make_predictions(models, data):
     """
-    Generate predictions for the next 24 hours based on the given data.
-    The data should contain hourly entries for the past 24 hours.
+    Generate predictions for the next 24 hours based on the given data and models.
     """
-    # Assume the model takes the past 24 hours as input to predict the next 24
-    # Process your data into a suitable input for the model
-    X = np.array([[
-        entry['temp'], 
-        entry['moist'], 
-        entry['lumen'],
-        entry['soil']] for entry in data])
-    
-    # Make predictions
-    predictions = model.predict(X)
-    
-    # Create a list of timestamps for the next 24 hours
-    start_time = datetime.now()
-    future_times = [start_time + timedelta(hours=i) for i in range(1, 25)]
-    
+    # Forecast the values for the next 24 hours using the models
+    predictions = {'lumen': [], 'humid': [], 'temp': []}
+    future_times = [datetime.now() + timedelta(hours=i) for i in range(1, 25)]
+
+    for column, model in models.items():
+        if model:
+            try:
+                forecast = model.forecast(24)
+                if len(forecast) != 24:
+                    print(f"Warning: Model for {column} did not produce 24 forecasts.")
+                # Round the predictions to 2 decimal places
+                predictions[column] = [round(f, 2) for f in forecast]
+            except Exception as e:
+                print(f"Error making forecast for {column}: {e}")
+
     # Format the results as a list of dictionaries
-    results = []
-    for i, pred in enumerate(predictions):
-        results.append({
-            'time': future_times[i].strftime('%Y-%m-%d %H:%M:%S'),
-            'pred_temp': pred[0],
-            'pred_moist': pred[1],
-            'pred_lumen': pred[2],
-            'pred_soil': pred[3]
-        })
-    
+    results = {
+        'lumen': [],
+        'humid': [],
+        'temp': []
+    }
+
+    for i in range(24):
+        time = future_times[i].strftime('%Y-%m-%d %H:%M:%S')
+        for column in results.keys():
+            if i < len(predictions[column]):
+                results[column].append({f'time': time, f'pred_{column}': predictions[column][i]})
+            else:
+                results[column].append({f'time': time, f'pred_{column}': None})
+
     return results
+
 
 @app.route('/predict/node<int:id_gh>', methods=['GET'])
 def predict_next_24_hours(id_gh):
@@ -79,8 +105,15 @@ def predict_next_24_hours(id_gh):
     if len(historical_data) < 24:
         return jsonify({"error": "Not enough data for prediction"}), 400
 
+    # Prepare models for prediction
+    models = {
+        'lumen': lumen_model,
+        'humid': humid_model,
+        'temp': temp_model
+    }
+
     # Generate predictions for the next 24 hours
-    predictions = make_predictions(historical_data)
+    predictions = make_predictions(models, historical_data)
     
     # Return the predictions as JSON
     return jsonify(predictions), 200
