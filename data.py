@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0,'lib')
 from config import Config
 from flask import Flask, request, jsonify, session
-from flask_cors import CORS # type: ignore
+from flask_cors import CORS  # type: ignore
 from supabase import create_client, Client
 import secrets
 import requests
@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import regex as re
 import pytz
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+import numpy as np
+import joblib
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -19,48 +22,6 @@ app.config.from_object(Config)
 supabase_url = 'https://edggtblrgdscfjhkznkw.supabase.co'
 supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkZ2d0YmxyZ2RzY2ZqaGt6bmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMwMDUwNzIsImV4cCI6MjAzODU4MTA3Mn0.TtYY0AVPuVbQcJBBTXDvdPxEh6ffiUjL81XqIrHHqb4'
 supabase: Client = create_client(supabase_url,supabase_key)         
-
-def calculate_all(data):
-    # Data historis harus dalam urutan terbaru ke terlama
-    Huma_t1 = data['Huma_1']
-    Inte_t1 = data['Inte_1']
-    Temp_t1 = data['Temp_1']
-    Huma_t2 = data['Huma_2']
-    Inte_t2 = data['Inte_2']
-    Temp_t2 = data['Temp_2']
-    Huma_t3 = data['Huma_3']
-    Inte_t3 = data['Inte_3']
-    Temp_t3 = data['Temp_3']
-    Huma_t4 = data['Huma_4']
-    Inte_t4 = data['Inte_4']
-    Temp_t4 = data['Temp_4']
-    Huma_t5 = data['Huma_5']
-    Inte_t5 = data['Inte_5']
-    Temp_t5 = data['Temp_5']
-    
-    # Menghitung prediksi
-    Huma_t = (0.671 * Huma_t1 - 4.077e-05 * Inte_t1 - 0.534 * Temp_t1 +
-              0.144 * Huma_t2 - 1.296e-05 * Inte_t2 + 0.069 * Temp_t2 +
-              0.126 * Huma_t3 - 3.940e-06 * Inte_t3 + 0.102 * Temp_t3 +
-              0.0027 * Huma_t4 + 6.476e-06 * Inte_t4 + 0.0708 * Temp_t4 +
-              0.051 * Huma_t5 + 1.122e-05 * Inte_t5 + 0.2996 * Temp_t5 +
-              0.2837)
-    
-    Inte_t = (-6.404 * Huma_t1 + 0.446 * Inte_t1 + 68.8115 * Temp_t1 -
-              9.968 * Huma_t2 + 0.128 * Inte_t2 + 43.4208 * Temp_t2 +
-              13.198 * Huma_t3 + 0.063 * Inte_t3 - 103.112 * Temp_t3 +
-              45.8223 * Huma_t4 + 0.124 * Inte_t4 + 1.855 * Temp_t4 -
-              45.799 * Huma_t5 + 0.197 * Inte_t5 + 6.622 * Temp_t5 -
-              114.5463)
-    
-    Temp_t = (0.004437 * Huma_t1 + 4.198e-05 * Inte_t1 + 0.922 * Temp_t1 -
-              0.01048 * Huma_t2 + 3.844e-06 * Inte_t2 + 0.0034 * Temp_t2 -
-              0.0027 * Huma_t3 - 1.118e-05 * Inte_t3 + 0.0568 * Temp_t3 +
-              0.00788 * Huma_t4 - 4.808e-06 * Inte_t4 + 0.00651 * Temp_t4 +
-              0.001539 * Huma_t5 - 1.604e-05 * Inte_t5 + 0.00365 * Temp_t5 +
-              0.1101)
-    
-    return {"Huma_t": round(Huma_t,2), "Inte_t": round(Inte_t,2), "Temp_t": round(Temp_t,2)}
 
 @app.route('/')
 def index():
@@ -162,32 +123,6 @@ def average_production(id_gh):
                  "y":item['lumen']} for item in data]
     }
     return jsonify(formatted_data)
-
-
-@app.route('/predict/node<int:id_gh>', methods=['GET'])
-def predict_node(id_gh):
-    # Ambil data historis dari Supabase
-    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(5).execute()
-    data = data_sensor.data
-
-    if len(data) < 5:
-        return jsonify({"error": "Not enough data for prediction"}), 400
-    
-    # Siapkan data untuk prediksi
-    prev_data = {
-        'Huma_1': data[0]['moist'], 'Inte_1': data[0]['lumen'], 'Temp_1': data[0]['temp'],
-        'Huma_2': data[1]['moist'], 'Inte_2': data[1]['lumen'], 'Temp_2': data[1]['temp'],
-        'Huma_3': data[2]['moist'], 'Inte_3': data[2]['lumen'], 'Temp_3': data[2]['temp'],
-        'Huma_4': data[3]['moist'], 'Inte_4': data[3]['lumen'], 'Temp_4': data[3]['temp'],
-        'Huma_5': data[4]['moist'], 'Inte_5': data[4]['lumen'], 'Temp_5': data[4]['temp'],
-    }
-
-    print(prev_data)
-    # Lakukan prediksi
-    prediction = calculate_all(prev_data)
-
-    # Kembalikan hasil prediksi sebagai JSON
-    return jsonify(prediction)
 
 # ----------------------------- LOGIN USER -----------------------------
 
@@ -464,6 +399,114 @@ def check_all_greenhouses():
     else:
         # Tidak memberikan respon apapun jika semua data berhasil diambil
         return '', 204  # No Content
+    
+#---------Predict---------
+# Load the models (assuming models are saved as separate files for each variable)
+lumen_model = joblib.load('lumen_model.pkl')
+humid_model = joblib.load('humid_model.pkl')
+temp_model = joblib.load('temp_model.pkl')
+
+def fetch_hourly_data(id_gh, hours=24):
+    """
+    Fetch hourly data for the past hours hours at specific hours (e.g., 01:00, 02:00, etc.).
+    """
+    end_time = datetime.now()
+    start_time = end_time - timedelta(hours=hours)
+    
+    # Query Supabase to get data from start_time to end_time
+    response = supabase.table('dataNode') \
+        .select("*") \
+        .eq("id_gh", id_gh) \
+        .gte("time", start_time.isoformat()) \
+        .lte("time", end_time.isoformat()) \
+        .execute()
+    
+    if not response.data:
+        return []
+
+    # Convert the data to a DataFrame
+    df = pd.DataFrame(response.data)
+    
+    # Convert the time column to datetime
+    df['time'] = pd.to_datetime(df['time'])
+    
+    # Filter to get data only at specific hours
+    df_filtered = df[df['time'].dt.hour.isin(range(1, 25))]
+    
+    # Sort by time
+    df_filtered.sort_values(by='time', inplace=True)
+    
+    # Reset index to convert back to a list of dictionaries
+    df_filtered.reset_index(drop=True, inplace=True)
+    
+    # Convert DataFrame back to list of dictionaries
+    data_filtered = df_filtered.to_dict(orient='records')
+    
+    return data_filtered
+
+def make_predictions(models, data):
+    """
+    Generate predictions for the next 24 hours based on the given data and models.
+    """
+    # Forecast the values for the next 24 hours using the models
+    predictions = {'lumen': [], 'humid': [], 'temp': []}
+    
+    # Set future times to the next full hour from now
+    current_time = datetime.now()
+    next_full_hour = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    
+    # Generate future times for the next 24 hours starting from the next full hour
+    future_times = [next_full_hour + timedelta(hours=i) for i in range(24)]
+
+    for column, model in models.items():
+        if model:
+            try:
+                forecast = model.forecast(24)
+                if len(forecast) != 24:
+                    print(f"Warning: Model for {column} did not produce 24 forecasts.")
+                # Round the predictions to 2 decimal places
+                predictions[column] = [round(f, 2) for f in forecast]
+            except Exception as e:
+                print(f"Error making forecast for {column}: {e}")
+
+    # Format the results as a list of dictionaries
+    results = {
+        'lumen': [],
+        'humid': [],
+        'temp': []
+    }
+
+    for i in range(24):
+        time = future_times[i].strftime('%Y-%m-%d %H:%M:%S')
+        for column in results.keys():
+            if i < len(predictions[column]):
+                results[column].append({f'time': time, f'pred_{column}': predictions[column][i]})
+            else:
+                results[column].append({f'time': time, f'pred_{column}': None})
+
+    return results
+
+@app.route('/predict/node<int:id_gh>', methods=['GET'])
+def predict_next_24_hours(id_gh):
+    # Fetch hourly data for the past 24 hours
+    historical_data = fetch_hourly_data(id_gh, hours=24)
+    
+    if len(historical_data) < 24:
+        return jsonify({"error": "Not enough data for prediction"}), 400
+
+    # Prepare models for prediction
+    models = {
+        'lumen': lumen_model,
+        'humid': humid_model,
+        'temp': temp_model
+    }
+
+    # Generate predictions for the next 24 hours
+    predictions = make_predictions(models, historical_data)
+    
+    # Return the predictions as JSON
+    return jsonify(predictions), 200
+
     
 if __name__ == "__main__":
     app.run(debug=True)
