@@ -40,14 +40,20 @@ def data_monitoring(id_gh):
 
     if response.status_code == 200:
         data = response.json()
-        tempData = float(round(data[-1]['temp'],1))
-        humidData = float(round(data[-1]['moist'],1))
-        soilData = float(round(data[-1]['soil'],1))
-        lumenData = float(round(data[-1]['lumen'],1))
-        return jsonify({"temp":tempData,
-                        "humid":humidData,
-                        "soil":soilData,
-                        "lumen":lumenData})
+        if data:  # Pastikan data tidak kosong
+            tempData = float(round(data[-1]['temp'], 1))
+            humidData = float(round(data[-1]['moist'], 1))
+            soilData = float(round(data[-1]['soil'], 1))
+            lumenData = float(round(data[-1]['lumen'], 1))
+            return jsonify({"temp": tempData,
+                            "humid": humidData,
+                            "soil": soilData,
+                            "lumen": lumenData})
+        else:
+            return jsonify({"error": "No data found"}), 404
+    else:
+        # Mengembalikan respons jika gagal mengambil data dari API
+        return jsonify({"error": "Failed to fetch data from the API"}), response.status_code
 
 @app.route('/line/node<int:id_gh>', methods = ['GET'])
 def getdata(id_gh):
