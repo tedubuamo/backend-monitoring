@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0,'lib')
 from config import Config
 from flask import Flask, request, jsonify, session
-from flask_cors import CORS  # type: ignore
+from flask_cors import CORS 
 from supabase import create_client, Client
 import secrets
 import requests
