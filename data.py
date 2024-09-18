@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 import regex as re
 import pytz
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import numpy as np
 import joblib
 
