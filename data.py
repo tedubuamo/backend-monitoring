@@ -281,236 +281,236 @@ def get_pump_data(id_gh):
     return jsonify(formatted_data), 200
 
 
-#-------Notifikasi--------
-# Tentukan rentang ideal untuk masing-masing parameter
-IDEAL_TEMP_RANGE = (20, 38)   # Suhu ideal antara 20°C - 30°C
-IDEAL_HUMID_RANGE = (20, 85)  # Kelembapan ideal antara 50% - 70%
-IDEAL_SOIL_RANGE = (1, 85)   # Kelembapan tanah ideal antara 30% - 60%
-IDEAL_LUMEN_RANGE = (1, 40000)  # Intensitas cahaya ideal antara 300 - 700 lumen
+# #-------Notifikasi--------
+# # Tentukan rentang ideal untuk masing-masing parameter
+# IDEAL_TEMP_RANGE = (20, 38)   # Suhu ideal antara 20°C - 30°C
+# IDEAL_HUMID_RANGE = (20, 85)  # Kelembapan ideal antara 50% - 70%
+# IDEAL_SOIL_RANGE = (1, 85)   # Kelembapan tanah ideal antara 30% - 60%
+# IDEAL_LUMEN_RANGE = (1, 40000)  # Intensitas cahaya ideal antara 300 - 700 lumen
 
-# Variabel untuk menyimpan data outlier secara global
-outlier_data = {}
+# # Variabel untuk menyimpan data outlier secara global
+# outlier_data = {}
 
-# Fungsi untuk mendeteksi apakah data keluar dari batas ideal
-def is_outlier(value, ideal_range):
-    return value < ideal_range[0] or value > ideal_range[1]
+# # Fungsi untuk mendeteksi apakah data keluar dari batas ideal
+# def is_outlier(value, ideal_range):
+#     return value < ideal_range[0] or value > ideal_range[1]
 
-@app.route('/detect_outliers/node<int:id_gh>', methods=['GET'])
-def detect_outliers_node(id_gh):
-    global outlier_data
+# @app.route('/detect_outliers/node<int:id_gh>', methods=['GET'])
+# def detect_outliers_node(id_gh):
+#     global outlier_data
 
-    # Ambil data historis dari Supabase
-    data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(10).execute()
-    data = data_sensor.data
+#     # Ambil data historis dari Supabase
+#     data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).order("time", desc=True).limit(10).execute()
+#     data = data_sensor.data
 
-    # Variabel sementara untuk menyimpan data outlier per request
-    temp_outliers = []
-    humid_outliers = []
-    soil_outliers = []
-    lumen_outliers = []
+#     # Variabel sementara untuk menyimpan data outlier per request
+#     temp_outliers = []
+#     humid_outliers = []
+#     soil_outliers = []
+#     lumen_outliers = []
 
-    # Periksa setiap data sensor dan bandingkan dengan nilai ideal
-    for record in data:
-        temp = record['temp']
-        humid = record['moist']
-        soil = record['soil']
-        lumen = record['lumen']
+#     # Periksa setiap data sensor dan bandingkan dengan nilai ideal
+#     for record in data:
+#         temp = record['temp']
+#         humid = record['moist']
+#         soil = record['soil']
+#         lumen = record['lumen']
 
-        # Jika nilai keluar dari rentang ideal, simpan sebagai outlier
-        if is_outlier(temp, IDEAL_TEMP_RANGE):
-            temp_outliers.append({
-                "id_gh": id_gh,
-                "time": record['time'],
-                "value": temp
-            })
+#         # Jika nilai keluar dari rentang ideal, simpan sebagai outlier
+#         if is_outlier(temp, IDEAL_TEMP_RANGE):
+#             temp_outliers.append({
+#                 "id_gh": id_gh,
+#                 "time": record['time'],
+#                 "value": temp
+#             })
 
-        if is_outlier(humid, IDEAL_HUMID_RANGE):
-            humid_outliers.append({
-                "id_gh": id_gh,
-                "time": record['time'],
-                "value": humid
-            })
+#         if is_outlier(humid, IDEAL_HUMID_RANGE):
+#             humid_outliers.append({
+#                 "id_gh": id_gh,
+#                 "time": record['time'],
+#                 "value": humid
+#             })
 
-        if is_outlier(soil, IDEAL_SOIL_RANGE):
-            soil_outliers.append({
-                "id_gh": id_gh,
-                "time": record['time'],
-                "value": soil
-            })
+#         if is_outlier(soil, IDEAL_SOIL_RANGE):
+#             soil_outliers.append({
+#                 "id_gh": id_gh,
+#                 "time": record['time'],
+#                 "value": soil
+#             })
 
-        if is_outlier(lumen, IDEAL_LUMEN_RANGE):
-            lumen_outliers.append({
-                "id_gh": id_gh,
-                "time": record['time'],
-                "value": lumen
-            })
+#         if is_outlier(lumen, IDEAL_LUMEN_RANGE):
+#             lumen_outliers.append({
+#                 "id_gh": id_gh,
+#                 "time": record['time'],
+#                 "value": lumen
+#             })
 
-    # Simpan atau update data outlier di variabel global hanya untuk id_gh yang terdeteksi
-    outlier_data[id_gh] = {
-        "temp_outliers": temp_outliers,
-        "humid_outliers": humid_outliers,
-        "soil_outliers": soil_outliers,
-        "lumen_outliers": lumen_outliers,
-    }
+#     # Simpan atau update data outlier di variabel global hanya untuk id_gh yang terdeteksi
+#     outlier_data[id_gh] = {
+#         "temp_outliers": temp_outliers,
+#         "humid_outliers": humid_outliers,
+#         "soil_outliers": soil_outliers,
+#         "lumen_outliers": lumen_outliers,
+#     }
 
-    # Mengembalikan hasil deteksi outlier
-    return jsonify({
-        "temp_outliers": temp_outliers,
-        "humid_outliers": humid_outliers,
-        "soil_outliers": soil_outliers,
-        "lumen_outliers": lumen_outliers
-    }), 200
+#     # Mengembalikan hasil deteksi outlier
+#     return jsonify({
+#         "temp_outliers": temp_outliers,
+#         "humid_outliers": humid_outliers,
+#         "soil_outliers": soil_outliers,
+#         "lumen_outliers": lumen_outliers
+#     }), 200
 
-@app.route('/outliers/notifications', methods=['GET'])
-def get_outlier_notifications():
-    # Mengembalikan data outlier yang sudah disimpan
-    # Hanya data terbaru dari setiap id_gh yang ditampilkan
-    return jsonify(list(outlier_data.values())), 200
+# @app.route('/outliers/notifications', methods=['GET'])
+# def get_outlier_notifications():
+#     # Mengembalikan data outlier yang sudah disimpan
+#     # Hanya data terbaru dari setiap id_gh yang ditampilkan
+#     return jsonify(list(outlier_data.values())), 200
 
 
-#-------cek kondisi GH 1 jam terakhir------
-# Mengatur zona waktu Jakarta
-jakarta_tz = pytz.timezone('Asia/Jakarta')
+# #-------cek kondisi GH 1 jam terakhir------
+# # Mengatur zona waktu Jakarta
+# jakarta_tz = pytz.timezone('Asia/Jakarta')
 
-@app.route('/check_all_gh', methods=['GET'])
-def check_all_greenhouses():
-    # Daftar ID greenhouse yang ingin dicek
-    gh_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Contoh ID greenhouse
+# @app.route('/check_all_gh', methods=['GET'])
+# def check_all_greenhouses():
+#     # Daftar ID greenhouse yang ingin dicek
+#     gh_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Contoh ID greenhouse
 
-    notifikasi = []
+#     notifikasi = []
 
-    for id_gh in gh_ids:
-        # Waktu sekarang dan waktu 1 jam yang lalu di zona waktu Jakarta
-        current_time = datetime.now(jakarta_tz)
-        one_hour_ago = current_time - timedelta(hours=1)
+#     for id_gh in gh_ids:
+#         # Waktu sekarang dan waktu 1 jam yang lalu di zona waktu Jakarta
+#         current_time = datetime.now(jakarta_tz)
+#         one_hour_ago = current_time - timedelta(hours=1)
 
-        # Konversi waktu ke format string yang sesuai dengan database (misalnya ISO 8601)
-        one_hour_ago_str = one_hour_ago.isoformat()
+#         # Konversi waktu ke format string yang sesuai dengan database (misalnya ISO 8601)
+#         one_hour_ago_str = one_hour_ago.isoformat()
 
-        # Ambil data dari Supabase untuk setiap gh berdasarkan id_gh dalam waktu 1 jam terakhir
-        data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).gt("time", one_hour_ago_str).execute()
-        data = data_sensor.data
+#         # Ambil data dari Supabase untuk setiap gh berdasarkan id_gh dalam waktu 1 jam terakhir
+#         data_sensor = supabase.table('dataNode').select("*").eq("id_gh", id_gh).gt("time", one_hour_ago_str).execute()
+#         data = data_sensor.data
 
-        if len(data) == 0:
-            # Jika tidak ada data, tambahkan notifikasi
-            notifikasi.append(f"Tidak ada data dari greenhouse {id_gh} dalam 1 jam terakhir.")
+#         if len(data) == 0:
+#             # Jika tidak ada data, tambahkan notifikasi
+#             notifikasi.append(f"Tidak ada data dari greenhouse {id_gh} dalam 1 jam terakhir.")
     
-    if len(notifikasi) > 0:
-        # Jika ada notifikasi error, return notifikasi tersebut
-        return jsonify({
-            "status": "error",
-            "notifikasi": notifikasi
-        }), 404
-    else:
-        # Tidak memberikan respon apapun jika semua data berhasil diambil
-        return '', 204  # No Content
+#     if len(notifikasi) > 0:
+#         # Jika ada notifikasi error, return notifikasi tersebut
+#         return jsonify({
+#             "status": "error",
+#             "notifikasi": notifikasi
+#         }), 404
+#     else:
+#         # Tidak memberikan respon apapun jika semua data berhasil diambil
+#         return '', 204  # No Content
     
-#---------Predict---------
-# Load the models (assuming models are saved as separate files for each variable)
-lumen_model = joblib.load('lumen_model.pkl')
-humid_model = joblib.load('humid_model.pkl')
-temp_model = joblib.load('temp_model.pkl')
+# #---------Predict---------
+# # Load the models (assuming models are saved as separate files for each variable)
+# lumen_model = joblib.load('lumen_model.pkl')
+# humid_model = joblib.load('humid_model.pkl')
+# temp_model = joblib.load('temp_model.pkl')
 
-def fetch_hourly_data(id_gh, hours=24):
-    """
-    Fetch hourly data for the past hours hours at specific hours (e.g., 01:00, 02:00, etc.).
-    """
-    end_time = datetime.now()
-    start_time = end_time - timedelta(hours=hours)
+# def fetch_hourly_data(id_gh, hours=24):
+#     """
+#     Fetch hourly data for the past hours hours at specific hours (e.g., 01:00, 02:00, etc.).
+#     """
+#     end_time = datetime.now()
+#     start_time = end_time - timedelta(hours=hours)
     
-    # Query Supabase to get data from start_time to end_time
-    response = supabase.table('dataNode') \
-        .select("*") \
-        .eq("id_gh", id_gh) \
-        .gte("time", start_time.isoformat()) \
-        .lte("time", end_time.isoformat()) \
-        .execute()
+#     # Query Supabase to get data from start_time to end_time
+#     response = supabase.table('dataNode') \
+#         .select("*") \
+#         .eq("id_gh", id_gh) \
+#         .gte("time", start_time.isoformat()) \
+#         .lte("time", end_time.isoformat()) \
+#         .execute()
     
-    if not response.data:
-        return []
+#     if not response.data:
+#         return []
 
-    # Convert the data to a DataFrame
-    df = pd.DataFrame(response.data)
+#     # Convert the data to a DataFrame
+#     df = pd.DataFrame(response.data)
     
-    # Convert the time column to datetime
-    df['time'] = pd.to_datetime(df['time'])
+#     # Convert the time column to datetime
+#     df['time'] = pd.to_datetime(df['time'])
     
-    # Filter to get data only at specific hours
-    df_filtered = df[df['time'].dt.hour.isin(range(1, 25))]
+#     # Filter to get data only at specific hours
+#     df_filtered = df[df['time'].dt.hour.isin(range(1, 25))]
     
-    # Sort by time
-    df_filtered.sort_values(by='time', inplace=True)
+#     # Sort by time
+#     df_filtered.sort_values(by='time', inplace=True)
     
-    # Reset index to convert back to a list of dictionaries
-    df_filtered.reset_index(drop=True, inplace=True)
+#     # Reset index to convert back to a list of dictionaries
+#     df_filtered.reset_index(drop=True, inplace=True)
     
-    # Convert DataFrame back to list of dictionaries
-    data_filtered = df_filtered.to_dict(orient='records')
+#     # Convert DataFrame back to list of dictionaries
+#     data_filtered = df_filtered.to_dict(orient='records')
     
-    return data_filtered
+#     return data_filtered
 
-def make_predictions(models, data):
-    """
-    Generate predictions for the next 24 hours based on the given data and models.
-    """
-    # Forecast the values for the next 24 hours using the models
-    predictions = {'lumen': [], 'humid': [], 'temp': []}
+# def make_predictions(models, data):
+#     """
+#     Generate predictions for the next 24 hours based on the given data and models.
+#     """
+#     # Forecast the values for the next 24 hours using the models
+#     predictions = {'lumen': [], 'humid': [], 'temp': []}
     
-    # Set future times to the next full hour from now
-    current_time = datetime.now()
-    next_full_hour = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+#     # Set future times to the next full hour from now
+#     current_time = datetime.now()
+#     next_full_hour = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     
-    # Generate future times for the next 24 hours starting from the next full hour
-    future_times = [next_full_hour + timedelta(hours=i) for i in range(24)]
+#     # Generate future times for the next 24 hours starting from the next full hour
+#     future_times = [next_full_hour + timedelta(hours=i) for i in range(24)]
 
-    for column, model in models.items():
-        if model:
-            try:
-                forecast = model.forecast(24)
-                if len(forecast) != 24:
-                    print(f"Warning: Model for {column} did not produce 24 forecasts.")
-                # Round the predictions to 2 decimal places
-                predictions[column] = [round(f, 2) for f in forecast]
-            except Exception as e:
-                print(f"Error making forecast for {column}: {e}")
+#     for column, model in models.items():
+#         if model:
+#             try:
+#                 forecast = model.forecast(24)
+#                 if len(forecast) != 24:
+#                     print(f"Warning: Model for {column} did not produce 24 forecasts.")
+#                 # Round the predictions to 2 decimal places
+#                 predictions[column] = [round(f, 2) for f in forecast]
+#             except Exception as e:
+#                 print(f"Error making forecast for {column}: {e}")
 
-    # Format the results as a list of dictionaries
-    results = {
-        'lumen': [],
-        'humid': [],
-        'temp': []
-    }
+#     # Format the results as a list of dictionaries
+#     results = {
+#         'lumen': [],
+#         'humid': [],
+#         'temp': []
+#     }
 
-    for i in range(24):
-        time = future_times[i].strftime('%Y-%m-%d %H:%M:%S')
-        for column in results.keys():
-            if i < len(predictions[column]):
-                results[column].append({f'time': time, f'pred_{column}': predictions[column][i]})
-            else:
-                results[column].append({f'time': time, f'pred_{column}': None})
+#     for i in range(24):
+#         time = future_times[i].strftime('%Y-%m-%d %H:%M:%S')
+#         for column in results.keys():
+#             if i < len(predictions[column]):
+#                 results[column].append({f'time': time, f'pred_{column}': predictions[column][i]})
+#             else:
+#                 results[column].append({f'time': time, f'pred_{column}': None})
 
-    return results
+#     return results
 
-@app.route('/predict/node<int:id_gh>', methods=['GET'])
-def predict_next_24_hours(id_gh):
-    # Fetch hourly data for the past 24 hours
-    historical_data = fetch_hourly_data(id_gh, hours=24)
+# @app.route('/predict/node<int:id_gh>', methods=['GET'])
+# def predict_next_24_hours(id_gh):
+#     # Fetch hourly data for the past 24 hours
+#     historical_data = fetch_hourly_data(id_gh, hours=24)
     
-    if len(historical_data) < 24:
-        return jsonify({"error": "Not enough data for prediction"}), 400
+#     if len(historical_data) < 24:
+#         return jsonify({"error": "Not enough data for prediction"}), 400
 
-    # Prepare models for prediction
-    models = {
-        'lumen': lumen_model,
-        'humid': humid_model,
-        'temp': temp_model
-    }
+#     # Prepare models for prediction
+#     models = {
+#         'lumen': lumen_model,
+#         'humid': humid_model,
+#         'temp': temp_model
+#     }
 
-    # Generate predictions for the next 24 hours
-    predictions = make_predictions(models, historical_data)
+#     # Generate predictions for the next 24 hours
+#     predictions = make_predictions(models, historical_data)
     
-    # Return the predictions as JSON
-    return jsonify(predictions), 200
+#     # Return the predictions as JSON
+#     return jsonify(predictions), 200
 
     
 if __name__ == "__main__":
